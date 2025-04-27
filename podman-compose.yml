@@ -1,0 +1,118 @@
+name: keycloak-compose
+
+networks:
+  kcnet:
+    name: kcnet
+
+volumes:
+  db-data:
+
+secrets:
+  server.crt:
+    external: true
+  server.key:
+    external: true
+  dbusername:
+    external: true
+  dbpassword:
+    external: true
+  dbname:
+    external: true
+  kcadminusername:
+    external: true
+  kcadminpassword:
+    external: true
+
+services:
+  keycloak:
+    #image: quay.io/keycloak/keycloak:26.2
+    image: keycloak:26.2-optimized
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db-keycloak:
+        condition: service_healthy
+    container_name: keycloak
+    secrets:
+      - server.crt
+      - server.key
+      - dbusername
+      - dbpassword
+      - dbname
+      - kcadminusername
+      - kcadminpassword
+    networks:
+      - kcnet
+    ports:
+      - 8443:8443
+      - 9000:9000
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME_FILE: /run/secrets/kcadminusername
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/kcadminpassword
+      KC_HTTPS_CERTIFICATE_FILE: /run/secrets/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /run/secrets/server.key
+      KC_HOSTNAME_DEBUG: "true"
+      KC_LOG_CONSOLE_COLOR: "true"
+      KC_HOSTNAME: "https://pongkoeter"
+      KC_HOSTNAME_ADMIN: "https://pongkoeter:8443"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_CACHE: local
+      #KC_DB: postgres
+      KC_DB_USERNAME_FILE: /run/secrets/dbusername
+      KC_DB_PASSWORD_FILE: /run/secrets/dbpassword
+      KC_DB_URL_DATABASE_FILE: /run/secrets/dbname
+      KC_DB_URL_HOST: db-keycloak
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "echo </dev/tcp/localhost/9000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["start", "--optimized"]
+
+  db-keycloak:
+    image: docker.io/postgis/postgis:16-3.5
+    container_name: db-keycloak
+    secrets:
+      - dbusername
+      - dbpassword
+      - dbname
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/dbusername
+      POSTGRES_PASSWORD_FILE: /run/secrets/dbpassword
+      POSTGRES_DB_FILE: /run/secrets/dbname
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/dbusername) -d $(cat /run/secrets/dbname)"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - kcnet
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  nginx:
+    image: docker.io/nginx:1.28
+    container_name: nginx
+    depends_on:
+      keycloak:
+        condition: service_started
+    secrets:
+      - server.crt
+      - server.key
+    environment:
+      NGINX_SSL_CERT_FILE: /run/secrets/server.crt
+      NGINX_SSL_KEY_FILE: /run/secrets/server.key
+    networks:
+      - kcnet
+    ports:
+      - 443:443
+    volumes:
+      - ./default.conf.template:/etc/nginx/templates/default.conf.template:Z
+    command: ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,47 @@
+server {
+    listen 443 ssl;
+    server_name  _;
+
+    ssl_certificate           ${NGINX_SSL_CERT_FILE};
+    ssl_certificate_key       ${NGINX_SSL_KEY_FILE};
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_ciphers               HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Common proxy headers for all Keycloak paths
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port $server_port;
+    proxy_set_header Host $host;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_cache_bypass $http_upgrade;
+    
+    # Root location - primary frontend access point
+    location / {
+        root    /usr/share/nginx/html;
+    }
+
+    # Resources path for static resources
+    location /resources/ {
+        proxy_pass http://keycloak:8080/resources/;
+    }
+
+    # Realms path for authentication endpoints
+    location /realms/ {
+        proxy_pass http://keycloak:8080/realms/;
+    }
+
+    # Legacy /auth/ path for compatibility
+    location /auth/ {
+        proxy_pass http://keycloak:8080/;
+    }
+
+    error_page  404              /404.html;
+    error_page  500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
