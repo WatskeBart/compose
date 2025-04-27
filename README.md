@@ -1,3 +1,7 @@
+# Podman secrets
+
+1. Run `./addsecrets.sh` to setup the required secret values
+
 # Podman compose systemd
 1. `podman-compose up --build` # Check for errors and <kbd>CTRL+C</kbd> to stop
 2. `podman-compose down`

@@ -48,25 +48,24 @@ services:
       - 8443:8443
       - 9000:9000
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME_FILE: /run/secrets/kcadminusername
-      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/kcadminpassword
-      KC_HTTPS_CERTIFICATE_FILE: /run/secrets/server.crt
-      KC_HTTPS_CERTIFICATE_KEY_FILE: /run/secrets/server.key
+      KC_BOOTSTRAP_ADMIN_USERNAME_FILE: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HTTPS_CERTIFICATE_FILE: ${SSL_CERT_FILE}
+      KC_HTTPS_CERTIFICATE_KEY_FILE: ${SSL_KEY_FILE}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME_ADMIN: ${KEYCLOAK_HOSTNAME_ADMIN}
+      KC_DB_USERNAME_FILE: ${DB_USERNAME}
+      KC_DB_PASSWORD_FILE: ${DB_PASSWORD}
+      KC_DB_URL_DATABASE_FILE: ${DB_DATABASE}
+      KC_DB_URL_HOST: ${KEYCLOAK_DB_HOST}      
       KC_HOSTNAME_DEBUG: "true"
       KC_LOG_CONSOLE_COLOR: "true"
-      KC_HOSTNAME: "https://pongkoeter"
-      KC_HOSTNAME_ADMIN: "https://pongkoeter:8443"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_CACHE: local
-      #KC_DB: postgres
-      KC_DB_USERNAME_FILE: /run/secrets/dbusername
-      KC_DB_PASSWORD_FILE: /run/secrets/dbpassword
-      KC_DB_URL_DATABASE_FILE: /run/secrets/dbname
-      KC_DB_URL_HOST: db-keycloak
     healthcheck:
       test: ["CMD", "/bin/sh", "-c", "echo </dev/tcp/localhost/9000 || exit 1"]
       interval: 30s
@@ -83,11 +82,11 @@ services:
       - dbpassword
       - dbname
     environment:
-      POSTGRES_USER_FILE: /run/secrets/dbusername
-      POSTGRES_PASSWORD_FILE: /run/secrets/dbpassword
-      POSTGRES_DB_FILE: /run/secrets/dbname
+      POSTGRES_USER_FILE: ${DB_USERNAME}
+      POSTGRES_PASSWORD_FILE: ${DB_PASSWORD}
+      POSTGRES_DB_FILE: ${DB_DATABASE}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/dbusername) -d $(cat /run/secrets/dbname)"]
+      test: ["CMD-SHELL", "pg_isready -U $(cat $POSTGRES_USER_FILE) -d $(cat $POSTGRES_DB_FILE)"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -107,8 +106,9 @@ services:
       - server.crt
       - server.key
     environment:
-      NGINX_SSL_CERT_FILE: /run/secrets/server.crt
-      NGINX_SSL_KEY_FILE: /run/secrets/server.key
+      NGINX_SSL_CERT_FILE: ${SSL_CERT_FILE}
+      NGINX_SSL_KEY_FILE: ${SSL_KEY_FILE}
+      NGINX_KEYCLOAK_BACKEND_URL: ${KEYCLOAK_BACKEND_URL}
     networks:
       - kcnet
     ports:
