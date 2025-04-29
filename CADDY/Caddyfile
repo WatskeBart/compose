@@ -1,0 +1,70 @@
+{
+	admin off
+}
+
+{$APP_FQDN} {
+	# Enable TLS with external provided certificate files via environment variables
+	tls {$SSL_CERT_FILE} {$SSL_KEY_FILE}
+
+	# Static files
+	handle / {
+		root * /usr/share/caddy/html
+		file_server
+	}
+
+	handle /hello {
+		respond "Hello traveler 🫡"
+	}
+
+	# Common proxy configuration for all Keycloak paths
+	@keycloak_paths {
+		path /resources/* /realms/* /auth/*
+	}
+
+	# Define a common reverse_proxy config to use for all Keycloak paths
+	handle @keycloak_paths {
+		# Only strip prefix for /auth/ path
+		@auth path /auth/*
+		# Nested handle for /auth/ path
+		handle @auth {
+			uri strip_prefix /auth
+		}
+
+		# Caddy automatically forwards headers
+		reverse_proxy {$KEYCLOAK_BACKEND_URL} {
+			# Set trusted_proxies to tell Keycloak this is a secure connection
+			header_up Host {host}
+		}
+	}
+
+	# Handle websocket connections
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+		path /ws/*
+	}
+	handle @websockets {
+		reverse_proxy {$KEYCLOAK_BACKEND_URL} {
+			header_up Host {host}
+		}
+	}
+
+	# Handle errors
+	handle_errors {
+		@404 {
+			expression {http.error.status_code} == 404
+		}
+		handle @404 {
+			rewrite * /404.html
+			file_server
+		}
+
+		@5xx {
+			expression {http.error.status_code} >= 500
+		}
+		handle @5xx {
+			rewrite * /50x.html
+			file_server
+		}
+	}
+}

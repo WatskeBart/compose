@@ -6,6 +6,8 @@ networks:
 
 volumes:
   db-data:
+  caddy_data:  # For Caddy certificates and data
+  caddy_config:  # For Caddy configuration
 
 secrets:
   server.crt:
@@ -28,7 +30,7 @@ services:
     #image: quay.io/keycloak/keycloak:26.2
     image: keycloak:26.2-optimized
     build:
-      context: .
+      context: ./KEYCLOAK/
       dockerfile: Dockerfile
     depends_on:
       db-keycloak:
@@ -96,9 +98,9 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
 
-  nginx:
-    image: docker.io/nginx:1.28
-    container_name: nginx
+  caddy:
+    image: docker.io/caddy:2.10-alpine
+    container_name: caddy
     depends_on:
       keycloak:
         condition: service_started
@@ -106,13 +108,18 @@ services:
       - server.crt
       - server.key
     environment:
-      NGINX_SSL_CERT_FILE: ${SSL_CERT_FILE}
-      NGINX_SSL_KEY_FILE: ${SSL_KEY_FILE}
-      NGINX_KEYCLOAK_BACKEND_URL: ${KEYCLOAK_BACKEND_URL}
+      APP_FQDN: ${APP_FQDN}
+      SSL_CERT_FILE: ${SSL_CERT_FILE}
+      SSL_KEY_FILE: ${SSL_KEY_FILE}
+      KEYCLOAK_BACKEND_URL: ${KEYCLOAK_BACKEND_URL}
     networks:
       - kcnet
     ports:
       - 443:443
+      - 80:80
     volumes:
-      - ./default.conf.template:/etc/nginx/templates/default.conf.template:Z
-    command: ["nginx", "-g", "daemon off;"]
+      - ./CADDY/Caddyfile:/etc/caddy/Caddyfile:Z
+      - ./CADDY/html:/usr/share/caddy/html:Z
+      - caddy_data:/data
+      - caddy_config:/config
+      
