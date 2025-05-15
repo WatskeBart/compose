@@ -113,7 +113,7 @@ create_secrets() {
     fi
     
     # Create the secret
-    echo "$password" | podman secret create "$secret_name" -
+    printf "%s" "$password" | podman secret create "$secret_name" -
     
     # Check if secret was created successfully
     if [ $? -eq 0 ]; then
